@@ -59,6 +59,24 @@ func (m DirectoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{
 				return updatePath(m, Outof), nil
 			}
+		case "pgdown":
+			{
+				if len(m.entries) > listStyle.GetHeight() && m.cursor < len(m.entries)-listStyle.GetHeight() {
+
+					m.cursor += listStyle.GetHeight()
+					return m, nil
+				}
+				m.cursor = len(m.entries) - 1
+
+			}
+		case "pgup":
+			{
+				if m.cursor-listStyle.GetHeight() > 0 {
+					m.cursor -= listStyle.GetHeight()
+				} else {
+					m.cursor = 0
+				}
+			}
 		}
 	}
 

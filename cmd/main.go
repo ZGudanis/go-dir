@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	godir "github.com/ZygimantasGudanis/go-dir"
+	godir "github.com/ZGudanis/go-dir"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

@@ -24,6 +24,7 @@ var (
 
 	listStyle     lipgloss.Style
 	previewStyle  lipgloss.Style
+	mainViewStyle lipgloss.Style
 	folderStyle   lipgloss.Style = lipgloss.NewStyle().Foreground(colorGreen)
 	selectedStyle lipgloss.Style = lipgloss.NewStyle().Foreground(colorWhite).Background(colorBlue)
 
@@ -40,7 +41,7 @@ func init() {
 		BorderForeground(subtle).
 		MarginRight(0).
 		MarginBottom(0).
-		Height(verticalFill(.9)).
+		Height(verticalFill(.7)).
 		Width(horizontalFill(dirListWidth)).
 		MaxHeight(verticalFill(.9))
 
@@ -52,6 +53,10 @@ func init() {
 		Height(verticalFill(.9)).
 		MaxHeight(verticalFill(.9))
 
+	mainViewStyle = lipgloss.NewStyle().
+		MaxHeight(height).
+		MaxWidth(width)
+
 	text = textarea.New()
 	text.SetWidth(horizontalFill(1-dirListWidth) - 7)
 	text.SetHeight(verticalFill(.9))
@@ -59,27 +64,35 @@ func init() {
 
 func RenderList(model DirectoryModel) string {
 	text.SetValue(preview(model))
+
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
-		listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model)...)),
+		listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model, listStyle.GetHeight())...)),
+		// previewStyle.Render(strconv.Itoa(model.cursor)))
 		text.View())
 
-	mainView := lipgloss.NewStyle().
-		MaxHeight(height).
-		MaxWidth(width)
-	return mainView.Render(lipgloss.JoinVertical(lipgloss.Top,
+	return mainViewStyle.Render(lipgloss.JoinVertical(lipgloss.Top,
 		fmt.Sprintf("%s\n", model.cwd),
 		main,
 		"\nPress q to exit\n"))
 }
 
-func parseEntryNames(model DirectoryModel) []string {
+func parseEntryNames(model DirectoryModel, count int) []string {
 	names := make([]string, len(model.entries))
-	for i, entry := range model.entries {
+	var iterationEnd int = 0
+	var iterator int = 0
+	if len(model.entries) < count {
+		iterationEnd = len(model.entries)
+	} else {
+		iterationEnd = min(model.cursor+count, len(model.entries))
+		iterator = iterationEnd - count
+	}
+
+	for i, entry := range model.entries[iterator:iterationEnd] {
 		if entry.IsDir() {
-			names[i] = folder(entry.Name(), i == model.cursor)
+			names[i] = folder(entry.Name(), i+iterator == model.cursor)
 			continue
 		}
-		if i == model.cursor {
+		if i+iterator == model.cursor {
 			names[i] = selectedStyle.Render(entry.Name())
 			continue
 		}
@@ -121,7 +134,7 @@ func preview(model DirectoryModel) string {
 		names := strings.Builder{}
 		dir, err := os.ReadDir(model.cwd + "/" + entry.Name())
 		if err != nil {
-			panic(err)
+			return err.Error()
 		}
 		for _, entry := range dir {
 			// if entry.IsDir() {
@@ -140,4 +153,11 @@ func verticalFill(fill float32) int {
 }
 func horizontalFill(fill float32) int {
 	return int(float32(width) * fill)
+}
+
+func min(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
