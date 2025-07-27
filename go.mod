@@ -1,4 +1,4 @@
-module github.com/ZygimantasGudanis/go-dir
+module github.com/ZGudanis/go-dir
 
 go 1.24.4
 
