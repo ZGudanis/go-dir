@@ -50,6 +50,9 @@ func (m DirectoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "right":
 			{
+				if len(m.entries) == 0 {
+					return m, nil
+				}
 				return updatePath(m, Into), nil
 			}
 		case "left":
@@ -64,12 +67,9 @@ func (m DirectoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m DirectoryModel) View() string {
 	sbuilder := &strings.Builder{}
-	sbuilder.WriteString(m.cwd)
-	sbuilder.WriteString("\n\n")
 
 	sbuilder.WriteString(RenderList(m))
 
-	sbuilder.WriteString("\nPress q to exit\n")
 	return sbuilder.String()
 }
 

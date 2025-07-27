@@ -1,33 +1,76 @@
 package godir
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 )
 
 const (
-	width       = 96
-	columnWidth = 30
-
 	colorGreen      = lipgloss.Color("#1fb009")
 	colorWhite      = lipgloss.Color("#dededeff")
 	colorLightGreen = lipgloss.Color("#8df87dff")
 	colorBlue       = lipgloss.Color("#00166cff")
 )
 
-func RenderList(model DirectoryModel) string {
-	list := lipgloss.NewStyle().
+var (
+	dirListWidth float32 = 0.3
+	width        int
+	height       int
+
+	listStyle     lipgloss.Style
+	previewStyle  lipgloss.Style
+	folderStyle   lipgloss.Style = lipgloss.NewStyle().Foreground(colorGreen)
+	selectedStyle lipgloss.Style = lipgloss.NewStyle().Foreground(colorWhite).Background(colorBlue)
+
+	subtle = lipgloss.AdaptiveColor{Light: "#d9dccf", Dark: "#383838"}
+
+	text textarea.Model
+)
+
+func init() {
+	width, height, _ = term.GetSize(int(os.Stdout.Fd()))
+
+	listStyle = lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, true, false, false, false).
 		BorderForeground(subtle).
-		MarginRight(2).
-		Height(8).
-		Width(columnWidth + 1)
+		MarginRight(0).
+		MarginBottom(0).
+		Height(verticalFill(.9)).
+		Width(horizontalFill(dirListWidth)).
+		MaxHeight(verticalFill(.9))
 
-	return list.Render(
-		lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model)...),
-	)
+	previewStyle = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, true, false, false, false).
+		BorderForeground(subtle).
+		MarginRight(0).
+		MarginBottom(0).
+		Height(verticalFill(.9)).
+		MaxHeight(verticalFill(.9))
+
+	text = textarea.New()
+	text.SetWidth(horizontalFill(1-dirListWidth) - 7)
+	text.SetHeight(verticalFill(.9))
 }
 
-var subtle = lipgloss.AdaptiveColor{Light: "#d9dccf", Dark: "#383838"}
+func RenderList(model DirectoryModel) string {
+	text.SetValue(preview(model))
+	main := lipgloss.JoinHorizontal(lipgloss.Top,
+		listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model)...)),
+		text.View())
+
+	mainView := lipgloss.NewStyle().
+		MaxHeight(height).
+		MaxWidth(width)
+	return mainView.Render(lipgloss.JoinVertical(lipgloss.Top,
+		fmt.Sprintf("%s\n", model.cwd),
+		main,
+		"\nPress q to exit\n"))
+}
 
 func parseEntryNames(model DirectoryModel) []string {
 	names := make([]string, len(model.entries))
@@ -45,9 +88,6 @@ func parseEntryNames(model DirectoryModel) []string {
 	return names
 }
 
-var folderStyle = lipgloss.NewStyle().Foreground(colorGreen)
-var selectedStyle = lipgloss.NewStyle().Foreground(colorWhite).Background(colorBlue)
-
 var folder = func(s string, selected bool) string {
 	var style = folderStyle
 	if selected {
@@ -55,4 +95,49 @@ var folder = func(s string, selected bool) string {
 	}
 
 	return style.Render(s)
+}
+
+func preview(model DirectoryModel) string {
+	if len(model.entries) == 0 {
+		return ""
+	}
+
+	entry := model.entries[model.cursor]
+
+	if !entry.Type().IsDir() {
+		buffer := make([]byte, 2048)
+		file, err := os.Open(model.cwd + "/" + entry.Name())
+		if err != nil {
+			return err.Error()
+		}
+		defer file.Close()
+
+		read, err := file.Read(buffer)
+		if err != nil {
+			return "Unable to read"
+		}
+		return string(buffer[0:read])
+	} else {
+		names := strings.Builder{}
+		dir, err := os.ReadDir(model.cwd + "/" + entry.Name())
+		if err != nil {
+			panic(err)
+		}
+		for _, entry := range dir {
+			// if entry.IsDir() {
+			// 	names.WriteString(folder(strings.Trim(entry.Name(), "")+"\n", false))
+			// 	continue
+			// }
+			names.WriteString(strings.Trim(entry.Name(), "") + "\n")
+		}
+
+		return names.String()
+	}
+}
+
+func verticalFill(fill float32) int {
+	return int(float32(height) * fill)
+}
+func horizontalFill(fill float32) int {
+	return int(float32(width) * fill)
 }
