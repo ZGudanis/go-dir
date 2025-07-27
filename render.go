@@ -22,6 +22,7 @@ var (
 	width        int
 	height       int
 
+	listHeight    int
 	listStyle     lipgloss.Style
 	previewStyle  lipgloss.Style
 	mainViewStyle lipgloss.Style
@@ -43,7 +44,8 @@ func init() {
 		MarginBottom(0).
 		Height(verticalFill(.7)).
 		Width(horizontalFill(dirListWidth)).
-		MaxHeight(verticalFill(.9))
+		MaxHeight(verticalFill(.7))
+	listHeight = listStyle.GetHeight() - 1
 
 	previewStyle = lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, true, false, false, false).
@@ -66,7 +68,9 @@ func RenderList(model DirectoryModel) string {
 	text.SetValue(preview(model))
 
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
-		listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model, listStyle.GetHeight())...)),
+		lipgloss.JoinVertical(lipgloss.Top,
+			listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model, listHeight)...)),
+			fmt.Sprintf("\n%v/%v\n", model.cursor+1, len(model.entries))),
 		// previewStyle.Render(strconv.Itoa(model.cursor)))
 		text.View())
 
@@ -117,7 +121,7 @@ func preview(model DirectoryModel) string {
 
 	entry := model.entries[model.cursor]
 
-	if !entry.Type().IsDir() {
+	if !entry.IsDir() {
 		buffer := make([]byte, 2048)
 		file, err := os.Open(model.cwd + "/" + entry.Name())
 		if err != nil {
@@ -127,7 +131,7 @@ func preview(model DirectoryModel) string {
 
 		read, err := file.Read(buffer)
 		if err != nil {
-			return "Unable to read"
+			return err.Error()
 		}
 		return string(buffer[0:read])
 	} else {
