@@ -2,6 +2,7 @@ package godir
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,53 +32,7 @@ func (m DirectoryModel) Init() tea.Cmd {
 func (m DirectoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-
-		case "up", "k":
-			{
-				if m.cursor > 0 {
-					m.cursor--
-				}
-			}
-
-		case "down", "j":
-			{
-				if m.cursor < len(m.entries)-1 {
-					m.cursor++
-				}
-			}
-		case "right":
-			{
-				if len(m.entries) == 0 {
-					return m, nil
-				}
-				return updatePath(m, Into), nil
-			}
-		case "left":
-			{
-				return updatePath(m, Outof), nil
-			}
-		case "pgdown":
-			{
-				if len(m.entries) > listHeight && m.cursor < len(m.entries)-listHeight {
-
-					m.cursor += listHeight
-					return m, nil
-				}
-				m.cursor = len(m.entries) - 1
-
-			}
-		case "pgup":
-			{
-				if m.cursor-listHeight > 0 {
-					m.cursor -= listHeight
-				} else {
-					m.cursor = 0
-				}
-			}
-		}
+		return m.keyMsgHandler(msg)
 	}
 
 	return m, nil
@@ -136,4 +91,75 @@ func updatePath(model DirectoryModel, move MoveCmd) DirectoryModel {
 		cursor:  0,
 		cwd:     path,
 	}
+}
+
+func (m DirectoryModel) keyMsgHandler(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+
+	case "enter":
+		return m, tea.ExecProcess(exec.Command("code", m.cwd), nil)
+	case "ctrl+e":
+		return m, tea.ExecProcess(exec.Command("code", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+	case "ctrl+v":
+		{
+			if m.entries[m.cursor].IsDir() {
+				return m, nil
+			}
+			return m, tea.ExecProcess(exec.Command("vim", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+		}
+	case "ctrl+n":
+		{
+			if m.entries[m.cursor].IsDir() {
+				return m, nil
+			}
+			return m, tea.ExecProcess(exec.Command("nano", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+		}
+
+	case "up", "k":
+		{
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		}
+
+	case "down", "j":
+		{
+			if m.cursor < len(m.entries)-1 {
+				m.cursor++
+			}
+		}
+	case "right":
+		{
+			if len(m.entries) == 0 {
+				return m, nil
+			}
+			return updatePath(m, Into), nil
+		}
+	case "left":
+		return updatePath(m, Outof), nil
+
+	case "pgdown":
+		{
+			if len(m.entries) > listHeight && m.cursor < len(m.entries)-listHeight {
+
+				m.cursor += listHeight
+				return m, nil
+			}
+			m.cursor = len(m.entries) - 1
+
+		}
+	case "pgup":
+		{
+			if m.cursor-listHeight > 0 {
+				m.cursor -= listHeight
+			} else {
+				m.cursor = 0
+			}
+		}
+
+	}
+
+	return m, nil
 }

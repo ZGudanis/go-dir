@@ -10,3 +10,4 @@ Create a useful terminal tool that helps navigate File system
 
 Issues:
     Figure out Special cases with breaking characters (Maybe use text field)
+    Improve Directory detection
