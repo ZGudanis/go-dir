@@ -9,9 +9,13 @@ import (
 )
 
 type DirectoryModel struct {
-	cursor  int
-	entries []os.DirEntry
-	cwd     string
+	cwd         string
+	cursor      int
+	entries     []os.DirEntry
+	showPreview bool
+
+	search   string
+	isSearch bool
 }
 
 func InitModel(cwd string) DirectoryModel {
@@ -95,69 +99,98 @@ func updatePath(model DirectoryModel, move MoveCmd) DirectoryModel {
 
 func (m DirectoryModel) keyMsgHandler(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
-	case "ctrl+c", "q":
+	case "ctrl+c":
 		return m, tea.Quit
 
-	case "enter":
-		return m, tea.ExecProcess(exec.Command("code", m.cwd), nil)
-	case "ctrl+e":
-		return m, tea.ExecProcess(exec.Command("code", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+	case "ctrl+f": // Search{}
+		m.isSearch = false
+		searchField.Blur()
+		return m, nil
+
 	case "ctrl+v":
-		{
-			if m.entries[m.cursor].IsDir() {
-				return m, nil
-			}
-			return m, tea.ExecProcess(exec.Command("vim", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+		if m.entries[m.cursor].IsDir() {
+			return m, nil
 		}
+		return m, tea.ExecProcess(exec.Command("vim", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
 	case "ctrl+n":
-		{
-			if m.entries[m.cursor].IsDir() {
-				return m, nil
-			}
-			return m, tea.ExecProcess(exec.Command("nano", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+		if m.entries[m.cursor].IsDir() {
+			return m, nil
 		}
+		return m, tea.ExecProcess(exec.Command("nano", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
 
 	case "up", "k":
-		{
-			if m.cursor > 0 {
-				m.cursor--
-			}
+		if m.cursor > 0 {
+			m.cursor--
+			return m, nil
 		}
 
 	case "down", "j":
-		{
-			if m.cursor < len(m.entries)-1 {
-				m.cursor++
-			}
+		if m.cursor < len(m.entries)-1 {
+			m.cursor++
+			return m, nil
 		}
-	case "right":
-		{
-			if len(m.entries) == 0 {
-				return m, nil
-			}
-			return updatePath(m, Into), nil
-		}
-	case "left":
-		return updatePath(m, Outof), nil
+
+	case "ctrl+x": // Search{}
+		searchField.Reset()
+		return m, nil
 
 	case "pgdown":
-		{
-			if len(m.entries) > listHeight && m.cursor < len(m.entries)-listHeight {
-
-				m.cursor += listHeight
-				return m, nil
-			}
+		if len(m.entries) > listHeight && m.cursor < len(m.entries)-listHeight {
+			m.cursor += listHeight
+		} else {
 			m.cursor = len(m.entries) - 1
+		}
 
-		}
+		return m, nil
+
 	case "pgup":
-		{
-			if m.cursor-listHeight > 0 {
-				m.cursor -= listHeight
-			} else {
-				m.cursor = 0
-			}
+		if m.cursor-listHeight > 0 {
+			m.cursor -= listHeight
+		} else {
+			m.cursor = 0
 		}
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	if searchField.Focused() {
+		searchField, cmd = searchField.Update(key)
+		return m, cmd
+	}
+
+	switch key.String() {
+	case "r": // Refresh
+		return m, nil
+	case "p":
+		m.showPreview = !m.showPreview
+		return m, nil
+	case "q":
+		return m, tea.Quit
+	case "f": // Search{}
+		m.isSearch = true
+		return m, searchField.Focus()
+
+	case "enter":
+		if m.isSearch {
+			m.isSearch = !m.isSearch
+			return m, nil
+		}
+		return m, tea.ExecProcess(exec.Command("code", m.cwd), nil)
+
+	case "ctrl+e":
+		if len(m.cwd) == 1 {
+			return m, tea.ExecProcess(exec.Command("code", m.cwd+m.entries[m.cursor].Name()), nil)
+		}
+		return m, tea.ExecProcess(exec.Command("code", m.cwd+"/"+m.entries[m.cursor].Name()), nil)
+
+	case "right":
+		if len(m.entries) == 0 {
+			return m, nil
+		}
+		return updatePath(m, Into), nil
+
+	case "left":
+		return updatePath(m, Outof), nil
 
 	}
 

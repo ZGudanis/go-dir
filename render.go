@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
@@ -18,20 +19,21 @@ const (
 )
 
 var (
-	dirListWidth float32 = 0.3
-	width        int
-	height       int
+	subtle = lipgloss.AdaptiveColor{Light: "#d9dccf", Dark: "#383838"}
 
+	dirListWidth  float32 = 0.3
+	dirListHeight float32 = .7
+	width         int
+	height        int
 	listHeight    int
+
 	listStyle     lipgloss.Style
-	previewStyle  lipgloss.Style
 	mainViewStyle lipgloss.Style
 	folderStyle   lipgloss.Style = lipgloss.NewStyle().Foreground(colorGreen)
 	selectedStyle lipgloss.Style = lipgloss.NewStyle().Foreground(colorWhite).Background(colorBlue)
 
-	subtle = lipgloss.AdaptiveColor{Light: "#d9dccf", Dark: "#383838"}
-
-	text textarea.Model
+	text        textarea.Model
+	searchField textinput.Model
 )
 
 func init() {
@@ -42,18 +44,9 @@ func init() {
 		BorderForeground(subtle).
 		MarginRight(0).
 		MarginBottom(0).
-		Height(verticalFill(.7)).
-		Width(horizontalFill(dirListWidth)).
-		MaxHeight(verticalFill(.7))
+		Height(verticalFill(dirListHeight)).
+		Width(horizontalFill(dirListWidth))
 	listHeight = listStyle.GetHeight() - 1
-
-	previewStyle = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, true, false, false, false).
-		BorderForeground(subtle).
-		MarginRight(0).
-		MarginBottom(0).
-		Height(verticalFill(.9)).
-		MaxHeight(verticalFill(.9))
 
 	mainViewStyle = lipgloss.NewStyle().
 		MaxHeight(height).
@@ -62,15 +55,24 @@ func init() {
 	text = textarea.New()
 	text.SetWidth(horizontalFill(1-dirListWidth) - 7)
 	text.SetHeight(verticalFill(.9))
+
+	searchField = textinput.New()
+	searchField.Width = horizontalFill(dirListWidth) - 1
 }
 
 func RenderList(model DirectoryModel) string {
 	text.SetValue(preview(model))
+	mainView := lipgloss.JoinVertical(lipgloss.Top,
+		listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model, listHeight)...)),
+		fmt.Sprintf("\n%v/%v\n", model.cursor+1, len(model.entries)))
+	if model.isSearch {
+		mainView = lipgloss.JoinVertical(lipgloss.Top,
+			mainView,
+			searchField.View())
+	}
 
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.JoinVertical(lipgloss.Top,
-			listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parseEntryNames(model, listHeight)...)),
-			fmt.Sprintf("\n%v/%v\n", model.cursor+1, len(model.entries))),
+		mainView,
 		// previewStyle.Render(strconv.Itoa(model.cursor)))
 		text.View())
 
@@ -115,7 +117,7 @@ var folder = func(s string, selected bool) string {
 }
 
 func preview(model DirectoryModel) string {
-	if len(model.entries) == 0 {
+	if !model.showPreview || len(model.entries) == 0 {
 		return ""
 	}
 
@@ -141,11 +143,7 @@ func preview(model DirectoryModel) string {
 			return err.Error()
 		}
 		for _, entry := range dir {
-			// if entry.IsDir() {
-			// 	names.WriteString(folder(strings.Trim(entry.Name(), "")+"\n", false))
-			// 	continue
-			// }
-			names.WriteString(strings.Trim(entry.Name(), "") + "\n")
+			names.WriteString(entry.Name() + "\n")
 		}
 
 		return names.String()
