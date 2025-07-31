@@ -91,9 +91,10 @@ func updatePath(model DirectoryModel, move MoveCmd) DirectoryModel {
 		return model
 	}
 	return DirectoryModel{
-		entries: dir,
-		cursor:  0,
-		cwd:     path,
+		entries:     dir,
+		cursor:      0,
+		cwd:         path,
+		showPreview: model.showPreview,
 	}
 }
 

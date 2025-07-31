@@ -13,3 +13,5 @@
         }
     ]
 }
+//TODO: make build
+//go build -o build/godir cmd/main.go

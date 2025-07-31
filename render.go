@@ -73,7 +73,6 @@ func RenderList(model DirectoryModel) string {
 
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
 		mainView,
-		// previewStyle.Render(strconv.Itoa(model.cursor)))
 		text.View())
 
 	return mainViewStyle.Render(lipgloss.JoinVertical(lipgloss.Top,
